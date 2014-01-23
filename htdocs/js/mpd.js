@@ -71,6 +71,20 @@ var app = $.sammy(function() {
         $('#browse').addClass('active');
     });
 
+    this.get(/\#\/lists\/(.*)/, function() {
+        current_app = 'lists';
+        $('#breadcrump').removeClass('hide').empty().append("<li><a href=\"#/lists/\">root</a></li>");
+        $('#salamisandwich').find("tr:gt(0)").remove();
+        var playlist = this.params['splat'][0];
+
+        $.get("/api/get_lists/" + encodeURIComponent(playlist), socket.onmessage);
+
+        $('#panel-heading').text("Browse playlists: "+playlist+"");
+
+        $('#breadcrump').append("<li><a href=\"#/lists/" + playlist + "\">"+playlist+"</a></li>");
+        $('#lists').addClass('active');
+    });
+
     this.get("/", function(context) {
         context.redirect("#/");
     });
@@ -317,6 +331,92 @@ function webSocketConnect() {
                         message:{text: obj.data},
                         type: "danger",
                     }).show();
+                    break;
+                case "lists":
+                    if(current_app !== 'lists')
+                        break;
+
+                    console.log(obj.data);
+                    for (var item in obj.data) {
+                        $('#salamisandwich > tbody').append(
+                            "<tr uri=\"" + obj.data[item] + "\" class=\"dir\">" +
+                                "<td><span class=\"glyphicon glyphicon-folder-open\"></span></td>" + 
+                                "<td><a>" + obj.data[item] + "</a></td>" + 
+                        "<td></td><td></td></tr>");
+                    }
+
+                    function appendClickableIcon(appendTo, onClickAction, glyphicon) {
+                        $(appendTo).children().last().append(
+                            "<a role=\"button\" class=\"pull-right btn-group-hover\">" +
+                            "<span class=\"glyphicon glyphicon-" + glyphicon + "\"></span></a>")
+                            .find('a').click(function(e) {
+                                e.stopPropagation();
+                                console.log(onClickAction);
+                                console.log($(this).parents("tr").attr("uri"));
+                                socket.send(onClickAction + "," + $(this).parents("tr").attr("uri"));
+                            $('.top-right').notify({
+                                message:{
+                                    text: $('td:nth-child(2)', $(this).parents("tr")).text() + " added"
+                                } }).show();
+                            }).fadeTo('fast',1);
+                    }
+
+                    $('#salamisandwich > tbody > tr').on({
+                        mouseenter: function() {
+                            if($(this).is(".dir")) 
+                                appendClickableIcon($(this), 'MPD_API_ADD_PLAYLIST', 'plus');
+                            else if($(this).is(".song"))
+                                appendClickableIcon($(this), 'MPD_API_ADD_PLAY_TRACK', 'play');
+                        },
+                        click: function() {
+                                app.setLocation("#/lists/"+$(this).attr("uri"));
+                        },
+                        mouseleave: function(){
+                            $(this).children().last().find("a").stop().remove();
+                        }
+                    });
+
+                    break;
+                case "playlist_content":
+                    if(current_app !== 'lists')
+                        break;
+
+                    console.log(obj.data);
+                    for (var item in obj.data) {
+                        var minutes = Math.floor(obj.data[item].duration / 60);
+                        var seconds = obj.data[item].duration - minutes * 60;
+
+                        $('#salamisandwich > tbody').append(
+                            "<tr uri=\"" + obj.data[item].uri + "\" class=\"song\">" +
+                                "<td><span class=\"glyphicon glyphicon-music\"></span></td>" + 
+                                "<td>" + obj.data[item].title +"</td>" + 
+                                "<td>"+ minutes + ":" + (seconds < 10 ? '0' : '') + seconds +"</td><td></td></tr>");
+                    }
+
+                    $('#salamisandwich > tbody > tr').on({
+                        mouseenter: function() {
+                            if($(this).is(".dir")) 
+                                appendClickableIcon($(this), 'MPD_API_ADD_TRACK', 'plus');
+                            else if($(this).is(".song"))
+                                appendClickableIcon($(this), 'MPD_API_ADD_PLAY_TRACK', 'play');
+                        },
+                        click: function() {
+                            if($(this).is(".song")) {
+                                socket.send("MPD_API_ADD_TRACK," + $(this).attr("uri"));
+                                $('.top-right').notify({
+                                    message:{
+                                        text: $('td:nth-child(2)', this).text() + " added"
+                                    }
+                                }).show();
+
+                            }
+                        },
+                        mouseleave: function(){
+                            $(this).children().last().find("a").stop().remove();
+                        }
+                    });
+
+                    break;
                 default:
                     break;
             }

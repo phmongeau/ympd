@@ -38,6 +38,7 @@
 #include <mpd/entity.h>
 #include <mpd/search.h>
 #include <mpd/tag.h>
+#include <mpd/list.h>
 
 #include "mpd_client.h"
 
@@ -206,6 +207,13 @@ int callback_ympd(struct libwebsocket_context *context,
                     int added_song = mpd_run_add_id(conn, uri);
                     if(added_song != -1)
                         mpd_run_play_id(conn, added_song);
+                    free(uri);
+                }
+            }
+            else if(!strncmp((const char *)in, MPD_API_ADD_PLAYLIST, sizeof(MPD_API_ADD_PLAYLIST)-1)) {
+                char *uri;
+                if(sscanf(in, "MPD_API_ADD_PLAYLIST,%m[^\t\n]", &uri) && uri != NULL) {
+                    mpd_run_load(conn, uri);
                     free(uri);
                 }
             }
