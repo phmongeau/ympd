@@ -145,6 +145,19 @@ int callback_http(struct libwebsocket_context *context,
                             YMPD_VERSION_MAJOR, YMPD_VERSION_MINOR, YMPD_VERSION_PATCH,
                             LIBMPDCLIENT_MAJOR_VERSION, LIBMPDCLIENT_MINOR_VERSION,
                             LIBMPDCLIENT_PATCH_VERSION);
+                else if(strncmp((const char *)in, "/api/get_lists", 14)  == 0)
+                {
+                    char *url;
+                    if(sscanf(in, "/api/get_lists/%m[^\t\n]", &url) == 1)
+                    {
+                        char *url_decoded = url_decode(url);
+                        response_size = mpd_put_list_content(response_buffer, url_decoded);
+                        free(url_decoded);
+                        free(url);
+                    }
+                    else
+                        response_size = mpd_put_lists(response_buffer);
+                }
 
                 /* Copy size to content-length field */
                 sprintf(buf, "%6zu", response_size);

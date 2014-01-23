@@ -451,3 +451,79 @@ int mpd_put_browse(char *buffer, char *path)
     cur += snprintf(cur, end  - cur, "] }");
     return cur - buffer;
 }
+int mpd_put_lists(char *buffer) {
+
+    char *cur = buffer;
+    const char *end = buffer + MAX_SIZE;
+    struct mpd_entity *entity;
+
+    if(!mpd_send_list_playlists(conn)) {
+        lwsl_err("MPD mpd_send_list_playlists: %s\n", mpd_connection_get_error_message(conn));
+        cur += snprintf(cur, end  - cur, "{\"type\":\"error\",\"data\":\"%s\"}", 
+            mpd_connection_get_error_message(conn));
+
+        if (!mpd_connection_clear_error(conn))
+            mpd_conn_state = MPD_FAILURE;
+        return cur - buffer;
+    }
+
+    cur += snprintf(cur, end  - cur, "{\"type\":\"lists\",\"data\":[ ");
+
+    while((entity = mpd_recv_entity(conn)) != NULL)
+    {
+        const struct mpd_playlist *playlist;
+
+        if(mpd_entity_get_type(entity) == MPD_ENTITY_TYPE_PLAYLIST) {
+            playlist = mpd_entity_get_playlist(entity);
+            cur += snprintf(cur, end - cur, "\"%s\",", (char*)mpd_playlist_get_path(playlist));
+        }
+
+        mpd_entity_free(entity);
+    }
+
+    cur--;
+    cur += snprintf(cur, end  - cur, "] }");
+
+    return cur - buffer;
+}
+
+int mpd_put_list_content(char *buffer, char *playlist)
+{
+    char *cur = buffer;
+    const char *end = buffer + MAX_SIZE;
+    struct mpd_entity *entity;
+
+    if (!mpd_send_list_playlist_meta(conn, playlist)) {
+        lwsl_err("MPD mpd_send_list_playlist_meta: %s\n", mpd_connection_get_error_message(conn));
+        cur += snprintf(cur, end  - cur, "{\"type\":\"error\",\"data\":\"%s\"}", 
+            mpd_connection_get_error_message(conn));
+
+        if (!mpd_connection_clear_error(conn))
+            mpd_conn_state = MPD_FAILURE;
+        return cur - buffer;
+    }
+
+    cur += snprintf(cur, end  - cur, "{\"type\":\"playlist_content\",\"data\":[ ");
+
+    while((entity = mpd_recv_entity(conn)) != NULL)
+    {
+        const struct mpd_song *song;
+
+        if(mpd_entity_get_type(entity) == MPD_ENTITY_TYPE_SONG) {
+            song = mpd_entity_get_song(entity);
+            cur += snprintf(cur, end  - cur, 
+                    "{\"type\":\"song\",\"uri\":\"%s\",\"duration\":%d,\"title\":\"%s\"},",
+                    mpd_song_get_uri(song),
+                    mpd_song_get_duration(song),
+                    mpd_get_title(song)
+                    );
+        }
+
+        mpd_entity_free(entity);
+    }
+
+    cur--;
+    cur += snprintf(cur, end  - cur, "] }");
+
+    return cur - buffer;
+}
