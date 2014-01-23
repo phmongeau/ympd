@@ -518,6 +518,20 @@ int mpd_put_list_content(char *buffer, char *playlist)
         const struct mpd_song *song;
 
         if(mpd_entity_get_type(entity) == MPD_ENTITY_TYPE_SONG) {
+
+            // playlist is longer than MAX_SIZE
+            if(cur >= end) {
+
+                mpd_entity_free(entity);
+
+                //rewwind to the start of the buffer
+                cur = buffer;
+                // print an error message
+                cur += snprintf(cur, end  - cur, "{\"type\":\"error\",\"data\":\"Error: playlist %s is to big\"}",
+                                playlist);
+                return cur - buffer;
+            }
+
             song = mpd_entity_get_song(entity);
             cur += snprintf(cur, end  - cur, 
                     "{\"type\":\"song\",\"uri\":\"%s\",\"duration\":%d,\"title\":\"%s\"},",
